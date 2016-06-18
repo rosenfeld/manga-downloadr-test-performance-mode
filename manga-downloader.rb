@@ -6,8 +6,11 @@ require 'thread'
 require_relative 'simple-downloader'
 require_relative 'keep-alive-downloader'
 require_relative 'simple-chapters-processor'
+require_relative 'forked-chapters-processor'
+require_relative 'forked-pool-chapters-processor'
 require_relative 'simple-page-processor'
 require_relative 'forked-page-processor'
+require_relative 'forked-pool-page-processor'
 
 class MangaDownloader
   def initialize(url)
@@ -19,6 +22,9 @@ class MangaDownloader
 
     @running_tasks = Queue.new
     @image_metadatas = Queue.new
+
+    ForkedPoolChaptersProcessor.pool_size = 6
+    ForkedPoolPageProcessor.pool_size = 6
   end
 
   def process
@@ -44,7 +50,7 @@ class MangaDownloader
         puts "Time to download main page: #{Time.now - start}"
         measure 'Find chapters paths' do
           @chapter_paths = Nokogiri::HTML(main_page).css('#listing a').map{|n| n['href']}
-          #@chapter_paths = @chapter_paths[0..5] # in case you want to speed up during development
+          #@chapter_paths = @chapter_paths[0..1] # in case you want to speed up during development
         end
       ensure
         continue << nil
@@ -78,8 +84,16 @@ class MangaDownloader
     end
   end
 
-  def chapters_processor
-    SimpleChaptersProcessor.instance # try other processors to compare
+  if RUBY_PLATFORM == 'java'
+    def chapters_processor
+      SimpleChaptersProcessor.instance # try other processors to compare
+    end
+  else
+    def chapters_processor
+      #SimpleChaptersProcessor.instance # try other processors to compare
+      #ForkedChaptersProcessor.instance
+      ForkedPoolChaptersProcessor.instance
+    end
   end
 
   def fetch_image_metadatas(page_path)
@@ -96,15 +110,17 @@ class MangaDownloader
     end
   else
     def page_processor
-      SimplePageProcessor.instance
-      # I'm not an specialist on IPC for forked children and this is not working well:
+      #SimplePageProcessor.instance
       #ForkedPageProcessor.instance
+      ForkedPoolPageProcessor.instance
     end
   end
 
   def wait_until_finished
     sleep 0.5 until @running_tasks.empty?
     downloader.stop
+    chapters_processor.stop if chapters_processor.respond_to? :stop
+    page_processor.stop if page_processor.respond_to? :stop
   end
 end
 

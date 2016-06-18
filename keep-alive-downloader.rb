@@ -32,7 +32,19 @@ class KeepAliveDownloader < BaseDownloader
             path, block = pair
             uri = @uri.clone
             uri.path = path
-            response = http.request Net::HTTP::Get.new uri
+            tries_left = 3
+            begin
+              response = http.request Net::HTTP::Get.new uri
+            rescue Exception => e
+              tries_left -= 1
+              if tries_left == 0
+                puts "Failed to download #{path}"
+                response = ''
+              else
+                puts "retrying #{path}"
+                retry
+              end
+            end
             @running_threads << run_in_thread(path, block, response)
           end
         end

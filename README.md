@@ -57,14 +57,9 @@ reasons.
 
 ## Contributions
 
-Feel free to point out other improvements you think could be made with a significant impact. I'm
-already aware that replacing the thread-based approach by a fork-based one might improve
-performance on MRI (I've been always frustrated by the sad state of real threading in MRI), so
-if you want to give it a try and create other more sophisticated processors that would run
-the Nokogiri HTML parse in a child fork (or a pool of forked children) and send the results back
-to the parent using IO pipes, go ahead and send me a PR.
+Feel free to point out other improvements you think could be made with a significant impact.
 
-There's also a potential to save up to half a second by using a ConditionVariable and
+There's a potential to save up to half a second by using a ConditionVariable and
 abstract methods like `inc_tasks` and `dec_tasks` which could signal the variable.
 
 Also, if you'd like to write an optimized version of this test mode in Elixir, it would be great

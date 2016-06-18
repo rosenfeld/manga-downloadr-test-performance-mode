@@ -8,9 +8,13 @@ class ForkedPageProcessor < SimplePageProcessor
       reader.close
       image = super
       writer.write [image.host, image.path, image.filename].join(';')
+      writer.close
+      exit 0
     end
     writer.close
-    Image.new *p(reader.gets.chomp.split(';'))
+    img = Image.new *reader.gets.chomp.split(';')
+    reader.close
+    img
   end
 end
 

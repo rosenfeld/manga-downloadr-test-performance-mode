@@ -59,9 +59,6 @@ reasons.
 
 Feel free to point out other improvements you think could be made with a significant impact.
 
-There's a potential to save up to half a second by using a ConditionVariable and
-abstract methods like `inc_tasks` and `dec_tasks` which could signal the variable.
-
 Also, if you'd like to write an optimized version of this test mode in Elixir, it would be great
 so that we could actually compare similar designs on different languages and confirm whether the
 difference is huge or not.

@@ -12,7 +12,7 @@ class ForkedPoolChaptersProcessor
 
   def initialize
     @io_pool = Queue.new
-    @@pool_size.times{start_reactor}
+    @@pool_size.times{ Thread.start { start_reactor } }
   end
 
   def get_page_paths(chapter_page)

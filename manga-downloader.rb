@@ -21,10 +21,17 @@ class MangaDownloader
     @main_path = @uri.path
 
     @running_tasks = Queue.new
+    @finished_mutex = Mutex.new
+    @finished_cond = ConditionVariable.new
     @image_metadatas = Queue.new
 
-    ForkedPoolChaptersProcessor.pool_size = 6
-    ForkedPoolPageProcessor.pool_size = 6
+    unless RUBY_PLATFORM == 'java'
+      ForkedPoolChaptersProcessor.pool_size = 6
+      ForkedPoolPageProcessor.pool_size = 6
+      # fork workers to speed up initialization
+      ForkedPoolChaptersProcessor.instance
+      ForkedPoolPageProcessor.instance
+    end
   end
 
   def process
@@ -74,14 +81,24 @@ class MangaDownloader
 
   def fetch_pages_paths
     @chapter_paths.each do |chapter_path|
-      @running_tasks << nil
+      increment_tasks
       download chapter_path do |chapter_page|
         (r=chapters_processor.get_page_paths(chapter_page)).each do |page_path|
           fetch_image_metadatas page_path
         end
-        @running_tasks.pop
+        decrement_tasks
       end
     end
+  end
+
+  def increment_tasks
+    @running_tasks << nil
+  end
+
+  def decrement_tasks
+    @running_tasks.pop
+    return unless @running_tasks.empty?
+    @finished_mutex.synchronize{ @finished_cond.signal }
   end
 
   if RUBY_PLATFORM == 'java'
@@ -97,10 +114,10 @@ class MangaDownloader
   end
 
   def fetch_image_metadatas(page_path)
-    @running_tasks << nil
+    increment_tasks
     download page_path do |page|
       @image_metadatas << page_processor.get_image_metadata(page_path, page)
-      @running_tasks.pop
+      decrement_tasks
     end
   end
 
@@ -117,7 +134,7 @@ class MangaDownloader
   end
 
   def wait_until_finished
-    sleep 0.5 until @running_tasks.empty?
+    @finished_mutex.synchronize{ @finished_cond.wait @finished_mutex }
     downloader.stop
     chapters_processor.stop if chapters_processor.respond_to? :stop
     page_processor.stop if page_processor.respond_to? :stop
